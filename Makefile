@@ -1,3 +1,5 @@
+-include .env
+
 .PHONY:  build run clean lint docker-up docker-down docker-logs deps
 
 # Variables
