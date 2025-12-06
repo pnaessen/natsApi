@@ -2,18 +2,16 @@
 
 .PHONY:  build run clean lint docker-up docker-down docker-logs deps
 
-# Variables
 APP_NAME := natsApi
 MAIN_PATH := ./cmd/api
 BINARY_NAME := api
 GO := go
 
-# Couleurs pour l'output
 BLUE := \033[0;34m
 GREEN := \033[0;32m
 YELLOW := \033[1;33m
 RED := \033[0;31m
-NC := \033[0m # No Color
+NC := \033[0m #
 
 
 deps:
@@ -26,8 +24,8 @@ build: deps
 	${GO} build -o bin/${BINARY_NAME} ${MAIN_PATH}
 	@echo "$(GREEN)✓ Build OK - bin/${BINARY_NAME}$(NC)"
 
-run: build
-	./bin/${BINARY_NAME}
+run:
+	go run ${MAIN_PATH}
 
 
 lint:

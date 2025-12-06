@@ -5,5 +5,5 @@ type User42 struct {
 	Username    string `json:"login"`
 	Email       string `json:"email"`
 	School_year string `json:"pool_year"`
-	Active      bool   `json:"active?"`
+	Is_active      bool   `json:"active?"`
 }
