@@ -24,19 +24,6 @@ func main() {
 	}
 	defer nc.Close()
 
-	_, err = nc.Subscribe("foo", func(m *nats.Msg) {
-    fmt.Printf("Reçu sur 'foo': %s\n", string(m.Data))
-	})
-
-	if err != nil {
-		log.Fatalf("Error Subscribe to NATS: %v", err)
-	}
-
-	err = nc.Publish("foo", []byte("Hello World"))
-	if err != nil {
-		log.Fatalf("Error publish NATS: %v", err)
-	}
-
 	r := gin.Default()
 
 	authHandler := handlers.NewAuthHandler()
@@ -47,3 +34,17 @@ func main() {
 		log.Fatalf("cannot run the serv %v", err)
 	}
 }
+
+
+	// _, err = nc.Subscribe("foo", func(m *nats.Msg) {
+    // fmt.Printf("Reçu sur 'foo': %s\n", string(m.Data))
+	// })
+
+	// if err != nil {
+	// 	log.Fatalf("Error Subscribe to NATS: %v", err)
+	// }
+
+	// err = nc.Publish("foo", []byte("Hello World"))
+	// if err != nil {
+	// 	log.Fatalf("Error publish NATS: %v", err)
+	// }

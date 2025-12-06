@@ -2,9 +2,9 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
-	"encoding/json"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/oauth2"
@@ -73,19 +73,35 @@ func (h *AuthHandler) CallBack(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Errorf("failed to decode user")})
 	}
 
+	userMessage := models.UserMessage{
+		Username:   user42Data.Username,
+		Email:      user42Data.Email,
+		Role:       "student",
+		IntraID:    user42Data.Id,
+		SchoolYear: user42Data.School_year,
+		IsActive:   user42Data.Is_active,
+	}
+
+	//TODO faire une request nats pour le findOrCreat
+
+	//TODO change GenerateJWT with userMessage maybe with the db id ??
 	tokenString, err := utils.GenerateJWT(user42Data.Id, user42Data.Username)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "echec generation token"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Succes",
-		"Id": user42Data.Id,
-		"Username": user42Data.Username,
-		"Email": user42Data.Email,
-		"School_year":	user42Data.School_year,
-		"Is_active":	user42Data.Is_active,
-		"Token":	tokenString,
-	})
+	//TODO Send the jwt to clien i guess
+
+
+
+	// c.JSON(http.StatusOK, gin.H{
+	// 	"message": "Succes",
+	// 	"Id": user42Data.Id,
+	// 	"Username": user42Data.Username,
+	// 	"Email": user42Data.Email,
+	// 	"School_year":	user42Data.School_year,
+	// 	"Is_active":	user42Data.Is_active,
+	// 	"Token":	tokenString,
+	// })
 }
