@@ -26,7 +26,7 @@ func main() {
 
 	r := gin.Default()
 
-	authHandler := handlers.NewAuthHandler()
+	authHandler := handlers.NewAuthHandler(nc)
 	r.GET("/login", authHandler.Login)
 	r.GET("/callback", authHandler.CallBack)
 

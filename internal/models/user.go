@@ -1,7 +1,7 @@
 package models
 
 type User42 struct {
-	Id          int    `json:"id"`
+	ID          int    `json:"id"`
 	Username    string `json:"login"`
 	Email       string `json:"email"`
 	School_year string `json:"pool_year"`
@@ -15,4 +15,6 @@ type UserMessage struct {
 	IntraID    int    `json:"intra_id"`
 	SchoolYear string `json:"school_year"`
 	IsActive   bool   `json:"is_active"`
+
+	Db_id     uint   `json:"db_id,omitempty"`
 }

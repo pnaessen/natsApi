@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/nats-io/nats.go"
 	"golang.org/x/oauth2"
 
 	//"natsApi/internal/models"
@@ -16,16 +18,18 @@ import (
 )
 
 type AuthHandler struct {
-	Config *oauth2.Config
+	Config   *oauth2.Config
+	NatsConn *nats.Conn
 }
 
-func NewAuthHandler() *AuthHandler {
+func NewAuthHandler(nc *nats.Conn) *AuthHandler {
 	env, err := config.LoadEnv()
 	if err != nil {
-		// return nil
+		fmt.Println("Error loading env:", err)
 	}
 
 	return &AuthHandler{
+		NatsConn: nc,
 		Config: &oauth2.Config{
 			ClientID:     env.ClientID,
 			ClientSecret: env.ClientSecret,
@@ -76,32 +80,40 @@ func (h *AuthHandler) CallBack(c *gin.Context) {
 	userMessage := models.UserMessage{
 		Username:   user42Data.Username,
 		Email:      user42Data.Email,
-		Role:       "student",
-		IntraID:    user42Data.Id,
+		IntraID:    user42Data.ID,
 		SchoolYear: user42Data.School_year,
 		IsActive:   user42Data.Is_active,
 	}
 
-	//TODO faire une request nats pour le findOrCreat
-
-	//TODO change GenerateJWT with userMessage maybe with the db id ??
-	tokenString, err := utils.GenerateJWT(user42Data.Id, user42Data.Username)
+	reqBytes, err := json.Marshal(userMessage)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "echec generation token"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "JSON marshal error"})
 		return
 	}
 
-	//TODO Send the jwt to clien i guess
+	msg, err := h.NatsConn.Request("user.login", reqBytes, 2*time.Second)
+	if err != nil {
+		fmt.Printf("NATS Error: %v\n", err)
+		c.JSON(http.StatusGatewayTimeout, gin.H{"error": "No worker on user"})
+		return
+	}
 
+	var workerResponse models.UserMessage
+	if err := json.Unmarshal(msg.Data, &workerResponse); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid response from worker"})
+		return
+	}
 
+	tokenString, err := utils.GenerateJWT(workerResponse.Db_id, workerResponse.Role)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "JWT generation failed"})
+		return
+	}
 
-	// c.JSON(http.StatusOK, gin.H{
-	// 	"message": "Succes",
-	// 	"Id": user42Data.Id,
-	// 	"Username": user42Data.Username,
-	// 	"Email": user42Data.Email,
-	// 	"School_year":	user42Data.School_year,
-	// 	"Is_active":	user42Data.Is_active,
-	// 	"Token":	tokenString,
-	// })
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Login successful",
+		"db_id":   workerResponse.Db_id,
+		"user":    workerResponse.Username,
+		"token":   tokenString,
+	})
 }
