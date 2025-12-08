@@ -49,6 +49,56 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	c.Redirect(http.StatusTemporaryRedirect, url)
 }
 
+func (h *AuthHandler) fetchUserFrom42(ctx context.Context, code string) (*models.User42, error) {
+
+	token, err := h.Config.Exchange(ctx, code)
+	if err != nil {
+		return nil, fmt.Errorf("failed to exchange token: %w", err)
+	}
+
+	client := h.Config.Client(ctx, token)
+	resp, err := client.Get("https://api.intra.42.fr/v2/me")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user info: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var user models.User42
+	if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
+		return nil, fmt.Errorf("failed to decode user: %w", err)
+	}
+
+	return &user, nil
+}
+
+func (h *AuthHandler) syncWithWorker(user42 *models.User42) (*models.UserMessage, error) {
+
+	reqMsg := models.UserMessage{
+		Username:   user42.Username,
+		Email:      user42.Email,
+		IntraID:    user42.ID,
+		SchoolYear: user42.School_year,
+		IsActive:   user42.Is_active,
+	}
+
+	reqBytes, err := json.Marshal(reqMsg)
+	if err != nil {
+		return nil, fmt.Errorf("marshal error: %w", err)
+	}
+
+	msg, err := h.NatsConn.Request("user.login", reqBytes, 2*time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("nats request failed: %w", err)
+	}
+
+	var respMsg models.UserMessage
+	if err := json.Unmarshal(msg.Data, &respMsg); err != nil {
+		return nil, fmt.Errorf("unmarshal worker response failed: %w", err)
+	}
+
+	return &respMsg, nil
+}
+
 func (h *AuthHandler) CallBack(c *gin.Context) {
 
 	code := c.Query("code")
@@ -57,63 +107,28 @@ func (h *AuthHandler) CallBack(c *gin.Context) {
 		return
 	}
 
-	token, err := h.Config.Exchange(context.Background(), code)
+	user42, err := h.fetchUserFrom42(c.Request.Context(), code)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Errorf("failed to exchange token: %w", err).Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	client := h.Config.Client(context.Background(), token)
-	resp, err := client.Get("https://api.intra.42.fr/v2/me")
+	workerUser, err := h.syncWithWorker(user42)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Errorf("failed to get user info: %w", err).Error()})
-		return
-	}
-	defer resp.Body.Close()
-
-	var user42Data models.User42
-
-	if err := json.NewDecoder(resp.Body).Decode(&user42Data); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Errorf("failed to decode user")})
-	}
-
-	userMessage := models.UserMessage{
-		Username:   user42Data.Username,
-		Email:      user42Data.Email,
-		IntraID:    user42Data.ID,
-		SchoolYear: user42Data.School_year,
-		IsActive:   user42Data.Is_active,
-	}
-
-	reqBytes, err := json.Marshal(userMessage)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "JSON marshal error"})
+		c.JSON(http.StatusGatewayTimeout, gin.H{"error": "Login service unavailable"})
 		return
 	}
 
-	msg, err := h.NatsConn.Request("user.login", reqBytes, 2*time.Second)
+	token, err := utils.GenerateJWT(workerUser.Db_id, workerUser.Role)
 	if err != nil {
-		fmt.Printf("NATS Error: %v\n", err)
-		c.JSON(http.StatusGatewayTimeout, gin.H{"error": "No worker on user"})
-		return
-	}
-
-	var workerResponse models.UserMessage
-	if err := json.Unmarshal(msg.Data, &workerResponse); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid response from worker"})
-		return
-	}
-
-	tokenString, err := utils.GenerateJWT(workerResponse.Db_id, workerResponse.Role)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "JWT generation failed"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Token generation failed"})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Login successful",
-		"db_id":   workerResponse.Db_id,
-		"user":    workerResponse.Username,
-		"token":   tokenString,
+		"user":    workerUser.Username,
+		"role":    workerUser.Role,
+		"token":   token,
 	})
 }

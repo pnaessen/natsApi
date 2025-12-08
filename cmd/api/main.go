@@ -9,6 +9,7 @@ import (
 	"natsApi/internal/handlers"
 
 	"github.com/gin-gonic/gin"
+	"natsApi/internal/messaging"
 )
 
 func main() {
@@ -24,6 +25,7 @@ func main() {
 	}
 	defer nc.Close()
 
+	messaging.LoadWorker(nc)
 	r := gin.Default()
 
 	authHandler := handlers.NewAuthHandler(nc)
