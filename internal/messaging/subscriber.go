@@ -4,19 +4,26 @@ import (
 	"encoding/json"
 	"log"
 	"natsApi/internal/models"
+	repository "natsApi/internal/repositories"
 
 	"github.com/nats-io/nats.go"
 )
 
-func LoadWorker(nc *nats.Conn) {
+func LoadWorker(nc *nats.Conn, userRepo *repository.UserRepository) {
 
 	var user models.UserMessage
 
 	_, err := nc.Subscribe("user.login", func(m *nats.Msg) {
 		if err := json.Unmarshal(m.Data, &user); err != nil {
-			log.Fatalf("Error Subscrite Unmarshal %v", err)
+			log.Printf("Error Subscrite Unmarshal %v", err)
+			return
 		}
-		//TODO insert dans la db
+
+		if err := userRepo.CreateUser(&user); err != nil {
+			log.Printf("Error saving to DB: %v", err)
+			return
+		}
+
 		resp := models.UserMessage{
 			Username:   user.Username,
 			Email:      user.Email,

@@ -4,12 +4,14 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/nats-io/nats.go"
 	"natsApi/internal/config"
+	"natsApi/internal/database"
 	"natsApi/internal/handlers"
+	"natsApi/internal/messaging"
+	repository "natsApi/internal/repositories"
 
 	"github.com/gin-gonic/gin"
-	"natsApi/internal/messaging"
+	"github.com/nats-io/nats.go"
 )
 
 func main() {
@@ -19,13 +21,17 @@ func main() {
 		log.Fatalf("cannot run the serv %v", err)
 	}
 
+	db := database.InitDB()
+
+	userRepo := repository.NewUserRepository(db)
+
 	nc, err := nats.Connect(nats.DefaultURL)
 	if err != nil {
 		log.Fatalf("Error connect to NATS: %v", err)
 	}
 	defer nc.Close()
 
-	messaging.LoadWorker(nc)
+	messaging.LoadWorker(nc, userRepo)
 	r := gin.Default()
 
 	authHandler := handlers.NewAuthHandler(nc)
@@ -36,17 +42,3 @@ func main() {
 		log.Fatalf("cannot run the serv %v", err)
 	}
 }
-
-
-	// _, err = nc.Subscribe("foo", func(m *nats.Msg) {
-    // fmt.Printf("Reçu sur 'foo': %s\n", string(m.Data))
-	// })
-
-	// if err != nil {
-	// 	log.Fatalf("Error Subscribe to NATS: %v", err)
-	// }
-
-	// err = nc.Publish("foo", []byte("Hello World"))
-	// if err != nil {
-	// 	log.Fatalf("Error publish NATS: %v", err)
-	// }
