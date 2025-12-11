@@ -3,6 +3,7 @@ package messaging
 import (
 	"encoding/json"
 	"log"
+
 	"natsApi/internal/models"
 	repository "natsApi/internal/repositories"
 
@@ -11,11 +12,25 @@ import (
 
 func LoadWorker(nc *nats.Conn, userRepo *repository.UserRepository) {
 
-	var user models.UserMessage
+	_, err := nc.Subscribe("user.login", HandleUserLogin(userRepo))
 
-	_, err := nc.Subscribe("user.login", func(m *nats.Msg) {
+	if err != nil {
+		log.Fatalf("Error Subscribe to NATS: %v", err)
+	}
+
+	_, err = nc.Subscribe("user.update_role", HandleUserUpdateRole(userRepo))
+
+	if err != nil {
+		log.Fatalf("Error Subscribe to NATS: %v", err)
+	}
+}
+
+func HandleUserLogin(userRepo *repository.UserRepository) nats.MsgHandler {
+	return func(m *nats.Msg) {
+		var user models.UserMessage
+
 		if err := json.Unmarshal(m.Data, &user); err != nil {
-			log.Printf("Error Subscrite Unmarshal %v", err)
+			log.Printf("Error Subscribe Unmarshal %v", err)
 			return
 		}
 
@@ -25,23 +40,59 @@ func LoadWorker(nc *nats.Conn, userRepo *repository.UserRepository) {
 		}
 
 		resp := models.UserMessage{
-			Username:   user.Username,
-			Email:      user.Email,
-			Role:       "admin",
-			IntraID:    user.IntraID,
-			SchoolYear: user.SchoolYear,
-			IsActive:   false,
-			Db_id:      1,
+			Username: "Test HandleUserLogin resp",
 		}
 
 		respBytes, err := json.Marshal(resp)
 		if err != nil {
-			log.Fatalf("Error marshal response: %v", err)
+			log.Printf("Error marshal response: %v", err)
+			return
 		}
-		m.Respond(respBytes)
-	})
 
-	if err != nil {
-		log.Fatalf("Error Subscribe to NATS: %v", err)
+		if err := m.Respond(respBytes); err != nil {
+			log.Printf("Error responding to NATS message: %v", err)
+			return
+		}
+	}
+}
+
+func HandleUserUpdateRole(userRepo *repository.UserRepository) nats.MsgHandler {
+
+	return func(m *nats.Msg) {
+		var req struct {
+			Username string `json:"username"`
+			Role     string `json:"role"`
+		}
+
+		if err := json.Unmarshal(m.Data, &req); err != nil {
+			log.Printf("Error Subscribe Unmarshal %v", err)
+			return
+		}
+
+		if req.Role != "admin" && req.Role != "student" && req.Role != "instructor" {
+			log.Printf("Error: Invalid role provided")
+			return
+		}
+
+		if err := userRepo.UpdateUserRoleByUsername(req.Username, req.Role); err != nil {
+			log.Printf("Error update role")
+			return
+		}
+
+		resp := models.UserMessage{
+			Username: req.Username,
+			Role:     req.Role,
+		}
+
+		respBytes, err := json.Marshal(resp)
+		if err != nil {
+			log.Printf("Error marshal response: %v", err)
+			return
+		}
+
+		if err := m.Respond(respBytes); err != nil {
+			log.Printf("Error responding to NATS message: %v", err)
+			return
+		}
 	}
 }

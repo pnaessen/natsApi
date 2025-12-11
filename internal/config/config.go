@@ -18,8 +18,8 @@ func LoadEnv() (*Env, error) {
 	_ = godotenv.Load()
 
 	env := &Env{
-		ClientID:     os.Getenv("API_42_UID"),
-		ClientSecret: os.Getenv("API_42_SEC"),
+		ClientID:     os.Getenv("CLIENT_42_ID"),
+		ClientSecret: os.Getenv("CLIENT_42_SECRET"),
 		RedirectURL:  os.Getenv("CALL_BACK"),
 	}
 

@@ -35,8 +35,12 @@ func main() {
 	r := gin.Default()
 
 	authHandler := handlers.NewAuthHandler(nc)
+	userHandler := handlers.NewUserHandler(nc)
+
 	r.GET("/login", authHandler.Login)
 	r.GET("/callback", authHandler.CallBack)
+
+	r.PATCH("/users/:username/role", userHandler.UpdateRole)
 
 	if err := r.Run(":8080"); err != nil {
 		log.Fatalf("cannot run the serv %v", err)
