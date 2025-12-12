@@ -16,17 +16,12 @@ import (
 	"natsApi/internal/models"
 	"natsApi/internal/utils"
 )
-
 type AuthHandler struct {
 	Config   *oauth2.Config
 	NatsConn *nats.Conn
 }
 
-func NewAuthHandler(nc *nats.Conn) *AuthHandler {
-	env, err := config.LoadEnv()
-	if err != nil {
-		fmt.Println("Error loading env:", err)
-	}
+func NewAuthHandler(nc *nats.Conn, env *config.Env) *AuthHandler {
 
 	return &AuthHandler{
 		NatsConn: nc,
@@ -128,7 +123,7 @@ func (h *AuthHandler) CallBack(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Login successful",
 		"user":    workerUser.Username,
-		"role":    workerUser.Role,
 		"token":   token,
+		"DB_ID":   workerUser.Db_id,
 	})
 }

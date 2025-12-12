@@ -9,13 +9,16 @@ type User42 struct {
 }
 
 type UserMessage struct {
-
-	Db_id      uint   `json:"db_id,omitempty" gorm:"primaryKey;column:id;autoIncrement"`
+	Db_id uint `json:"db_id,omitempty" gorm:"primaryKey;column:id;autoIncrement"`
 
 	Username   string `json:"username" gorm:"column:username"`
 	Email      string `json:"email" gorm:"column:email"`
-	Role       string `json:"role" gorm:"column:role"`
+	Role       string `json:"role" gorm:"column:role;default:student"`
 	IntraID    int    `json:"intra_id" gorm:"column:intra_id"`
 	SchoolYear string `json:"school_year" gorm:"column:school_year"`
 	IsActive   bool   `json:"is_active" gorm:"column:is_active"`
+}
+
+func (UserMessage) TableName() string {
+	return "users"
 }
