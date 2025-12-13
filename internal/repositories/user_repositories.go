@@ -2,7 +2,6 @@ package repository
 
 import (
 	"natsApi/internal/models"
-
 	"gorm.io/gorm"
 )
 
